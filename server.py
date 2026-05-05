@@ -4,8 +4,9 @@ import urllib.request
 import urllib.parse
 import ssl
 import os
+import re
 
-API_KEY  = 'JWmBKuA7QeepgSrgO2HnXw'
+API_KEY  = os.environ.get('KMA_API_KEY', 'JWmBKuA7QeepgSrgO2HnXw')
 API_BASE = 'https://apihub.kma.go.kr/api/typ02/openApi/VilageFcstInfoService_2.0'
 
 SSL_CTX = ssl.create_default_context()
