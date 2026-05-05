@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>천호3동 날씨</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background: #111;
+            color: #fff;
+            font-family: -apple-system, 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans KR', sans-serif;
+            min-height: 100vh;
+        }
+
+        .page {
+            max-width: 480px;
+            margin: 0 auto;
+            padding: 0 24px 48px;
+        }
+
+        /* ── 로딩 ── */
+        #loading-state {
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            min-height: 100vh; gap: 16px;
+        }
+        .spinner {
+            width: 44px; height: 44px;
+            border: 3px solid rgba(255,64,64,.25);
+            border-top-color: #FF4040;
+            border-radius: 50%;
+            animation: spin .8s linear infinite;
+        }
+        #loading-state p { font-size: 14px; color: rgba(255,255,255,.5); }
+
+        /* ── 에러 ── */
+        #error-state {
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            min-height: 100vh; gap: 14px;
+            padding: 24px;
+            text-align: center;
+        }
+        #error-state p { font-size: 15px; color: rgba(255,255,255,.7); line-height: 1.6; }
+        #error-msg { font-size: 12px; color: rgba(255,255,255,.35); }
+        .retry-btn {
+            background: #FF4040; border: none; color: #fff;
+            padding: 12px 28px; border-radius: 50px;
+            font-size: 14px; font-weight: 700; cursor: pointer;
+            margin-top: 4px;
+        }
+        .retry-btn:hover { background: #e03030; }
+
+        /* ── 상단 바 ── */
+        .topbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-top: 24px;
+            padding-bottom: 4px;
+        }
+        .loc-label {
+            display: flex; align-items: center; gap: 5px;
+            font-size: 13px; color: rgba(255,255,255,.6);
+        }
+        .loc-label svg { width: 14px; height: 14px; fill: #FF4040; flex-shrink: 0; }
+        .menu-btn {
+            background: none; border: none; color: rgba(255,255,255,.5);
+            cursor: pointer; padding: 4px; line-height: 1;
+        }
+        .menu-btn svg { width: 22px; height: 22px; }
+
+        /* ── 히어로 ── */
+        .hero { margin-top: 32px; text-align: center; }
+        .hero h1 {
+            font-size: 52px; font-weight: 900;
+            line-height: 1.05; letter-spacing: -1.5px;
+        }
+        .hero-sub {
+            font-size: 14px; color: rgba(255,255,255,.45);
+            margin-top: 12px;
+        }
+        .badge-row {
+            display: flex; align-items: center; gap: 12px;
+            margin-top: 16px; justify-content: center;
+        }
+        .badge {
+            background: #FF4040; color: #fff;
+            font-size: 12px; font-weight: 700;
+            padding: 5px 14px; border-radius: 50px;
+        }
+        .update-time { font-size: 12px; color: rgba(255,255,255,.4); }
+
+        /* ── 메인 날씨 ── */
+        .main-weather { margin-top: 36px; text-align: center; }
+
+        .temp-row {
+            display: flex; align-items: flex-start;
+            justify-content: center; gap: 2px;
+        }
+        .temp-num {
+            font-size: 120px; font-weight: 900;
+            color: #FF4040; line-height: 1;
+            letter-spacing: -4px;
+        }
+        .temp-unit {
+            font-size: 44px; font-weight: 700;
+            color: #FF4040; margin-top: 16px;
+        }
+
+        /* SVG 태양 */
+        .sun-wrap {
+            width: 100px; height: 100px;
+            margin: 12px auto 0;
+            animation: float 3.5s ease-in-out infinite;
+        }
+        .sun-wrap svg { width: 100%; height: 100%; }
+
+        /* 이모지 아이콘 (비/눈/흐림) */
+        .wx-emoji {
+            font-size: 80px; line-height: 1;
+            display: block; margin-top: 12px;
+            animation: float 3.5s ease-in-out infinite;
+        }
+        .wx-desc-text {
+            font-size: 22px; font-weight: 700;
+            margin-top: 10px; letter-spacing: -.3px;
+        }
+        .wx-sub {
+            display: flex; align-items: center;
+            justify-content: center; gap: 8px;
+            font-size: 13px; color: rgba(255,255,255,.5);
+            margin-top: 10px; flex-wrap: wrap;
+        }
+        .wx-sub .sep { opacity: .35; }
+
+        /* ── 날씨 한줄 요약 ── */
+        .weather-oneline {
+            font-size: 14px; color: rgba(255,255,255,.6);
+            margin-top: 20px; text-align: center;
+            line-height: 1.6; font-style: italic;
+        }
+
+        /* ── 주간 예보 ── */
+        .forecast-section { margin-top: 44px; }
+        .forecast-header {
+            display: flex; justify-content: center;
+            align-items: center; margin-bottom: 16px;
+        }
+        .forecast-title { font-size: 16px; font-weight: 700; }
+        .refresh-btn {
+            background: none; border: none; color: rgba(255,255,255,.4);
+            font-size: 22px; cursor: pointer; padding: 2px 4px;
+            transition: color .2s;
+        }
+        .refresh-btn:hover { color: #FF4040; }
+        .refresh-btn.spinning { animation: spin .7s linear infinite; }
+
+        .forecast-scroll {
+            display: flex; gap: 10px;
+            overflow-x: auto; padding-bottom: 6px;
+            scrollbar-width: none;
+        }
+        .forecast-scroll::-webkit-scrollbar { display: none; }
+
+        .fc-card {
+            flex-shrink: 0;
+            background: #1c1c1c;
+            border-radius: 18px;
+            padding: 18px 14px;
+            text-align: center;
+            min-width: 86px;
+        }
+        .fc-card.today { border: 1px solid rgba(255,64,64,.4); }
+        .fc-date-label { font-size: 11px; color: rgba(255,255,255,.4); margin-bottom: 2px; }
+        .fc-day-label  { font-size: 13px; font-weight: 700; margin-bottom: 12px; }
+        .fc-wx         { font-size: 28px; display: block; margin-bottom: 12px; }
+        .fc-max        { font-size: 16px; font-weight: 800; color: #FF4040; }
+        .fc-min        { font-size: 13px; color: rgba(255,255,255,.4); margin-top: 4px; }
+
+        /* ── 푸터 ── */
+        .footer-note {
+            text-align: center; font-size: 11px;
+            color: rgba(255,255,255,.25);
+            margin-top: 36px;
+        }
+
+        .topbar {
+            justify-content: center !important;
+            gap: 12px;
+        }
+
+        .hidden { display: none !important; }
+
+        @keyframes spin  { to { transform: rotate(360deg); } }
+        @keyframes float {
+            0%,100% { transform: translateY(0); }
+            50%      { transform: translateY(-10px); }
+        }
+    </style>
+</head>
+<body>
+
+<!-- 로딩 -->
+<div id="loading-state">
+    <div class="spinner"></div>
+    <p>날씨 정보를 불러오는 중...</p>
+</div>
+
+<!-- 날씨 본문 -->
+<div id="weather-state" class="hidden">
+    <div class="page">
+
+        <!-- 상단 바 -->
+        <div class="topbar">
+            <div class="loc-label">
+                <svg viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5S10.62 6.5 12 6.5s2.5 1.12 2.5 2.5S13.38 11.5 12 11.5z"/></svg>
+                서울특별시 강동구 천호3동
+            </div>
+            <button class="menu-btn" title="새로고침" id="refresh-btn" onclick="fetchWeather()">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.65 6.35A7.958 7.958 0 0 0 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0 1 12 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
+            </button>
+        </div>
+
+        <!-- 히어로 -->
+        <div class="hero">
+            <h1>우리동네 날씨</h1>
+            <p class="hero-sub">천호3동의 오늘 날씨는 어떤가요?</p>
+            <div class="badge-row">
+                <span class="badge">현재 날씨</span>
+                <span class="update-time" id="date-time">--</span>
+            </div>
+        </div>
+
+        <!-- 날씨 한줄 요약 -->
+        <p class="weather-oneline" id="weather-oneline"></p>
+
+        <!-- 메인 날씨 -->
+        <div class="main-weather">
+            <div class="temp-row">
+                <span class="temp-num" id="temp">--</span>
+                <span class="temp-unit">°C</span>
+            </div>
+            <div id="main-icon"></div>
+            <div class="wx-desc-text" id="wx-desc">--</div>
+            <div class="wx-sub">
+                <span>체감 <strong id="feels-like">--</strong>°C</span>
+                <span class="sep">|</span>
+                <span>습도 <strong id="humidity">--</strong>%</span>
+                <span class="sep">|</span>
+                <span>바람 <strong id="wind">--</strong></span>
+            </div>
+        </div>
+
+        <!-- 주간 예보 -->
+        <div class="forecast-section">
+            <div class="forecast-header">
+                <span class="forecast-title">주간 기상 예보</span>
+            </div>
+            <div class="forecast-scroll" id="forecast-days"></div>
+        </div>
+
+        <p class="footer-note">위치 정보는 자동으로 업데이트됩니다.</p>
+    </div>
+</div>
+
+<!-- 에러 -->
+<div id="error-state" class="hidden">
+    <p>⚠️ 날씨 정보를 불러올 수 없습니다.</p>
+    <p id="error-msg"></p>
+    <button class="retry-btn" onclick="fetchWeather()">다시 시도</button>
+</div>
+
+<script>
+    const API_KEY  = 'JWmBKuA7QeepgSrgO2HnXw';
+    const NX       = 62;
+    const NY       = 124;
+    const BASE_URL = '/proxy/api/typ02/openApi/VilageFcstInfoService_2.0';
+
+    const pad     = n => String(n).padStart(2, '0');
+    const fmtDate = d => `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}`;
+
+    function getNcstBase() {
+        const now = new Date();
+        let h = now.getHours(), d = new Date(now);
+        if (now.getMinutes() < 10) { h--; if (h < 0) { h = 23; d.setDate(d.getDate()-1); } }
+        return { base_date: fmtDate(d), base_time: pad(h)+'00' };
+    }
+
+    function getFcstBase() {
+        const BASES = [2,5,8,11,14,17,20,23];
+        const now = new Date();
+        let total = now.getHours()*60 + now.getMinutes() - 45;
+        let d = new Date(now);
+        if (total < 0) { total += 1440; d.setDate(d.getDate()-1); }
+        let bh = 23, prev = false;
+        for (let i = BASES.length-1; i >= 0; i--) {
+            if (BASES[i]*60 <= total) { bh = BASES[i]; break; }
+            if (i === 0) { bh = 23; prev = true; }
+        }
+        if (prev) d.setDate(d.getDate()-1);
+        return { base_date: fmtDate(d), base_time: pad(bh)+'00' };
+    }
+
+    async function callApi(endpoint, extra) {
+        const params = new URLSearchParams({ numOfRows:1000, pageNo:1, dataType:'JSON', nx:NX, ny:NY, ...extra });
+        const res  = await fetch(`${BASE_URL}/${endpoint}?authKey=${API_KEY}&${params}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const json = await res.json();
+        if (json.result?.status) throw new Error(json.result.message);
+        if (json.response?.header?.resultCode !== '00') throw new Error(`오류 코드: ${json.response.header.resultCode}`);
+        return json.response.body.items.item;
+    }
+
+    function windDir(deg) {
+        return ['북','북동','동','남동','남','남서','서','북서'][Math.round(parseFloat(deg)/45)%8];
+    }
+
+    function feelsLike(T, H, W) {
+        T = parseFloat(T); H = parseFloat(H);
+        const Wk = parseFloat(W)*3.6;
+        if (T <= 10 && Wk >= 5) return Math.round(13.12 + 0.6215*T - 11.37*Wk**0.16 + 0.3965*T*Wk**0.16);
+        if (T >= 27 && H >= 40) return Math.round(-8.78 + 1.611*T + 2.338*H - 0.1461*T*H - 0.0123*T*T - 0.0164*H*H + 0.00221*T*T*H + 0.000726*T*H*H - 0.00000359*T*T*H*H);
+        return Math.round(T);
+    }
+
+    function wxInfo(sky, pty) {
+        sky = parseInt(sky??1); pty = parseInt(pty??0);
+        if (pty===1) return { emoji:'🌧️', desc:'비'       };
+        if (pty===2) return { emoji:'🌨️', desc:'비/눈'    };
+        if (pty===3) return { emoji:'❄️',  desc:'눈'       };
+        if (pty===4) return { emoji:'🌦️', desc:'소나기'   };
+        if (sky===1) return { emoji:'☀️',  desc:'맑음',  sunny:true };
+        if (sky===3) return { emoji:'⛅',  desc:'구름 많음' };
+        if (sky===4) return { emoji:'☁️',  desc:'흐림'     };
+        return               { emoji:'🌤️', desc:'맑음', sunny:true };
+    }
+
+    /* 레퍼런스 스타일 붉은 태양 SVG */
+    const SUN_SVG = `
+        <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="50" cy="50" r="20" fill="#FF4040"/>
+            <g stroke="#FF4040" stroke-width="5" stroke-linecap="round">
+                <line x1="50" y1="4"  x2="50" y2="18"/>
+                <line x1="50" y1="82" x2="50" y2="96"/>
+                <line x1="4"  y1="50" x2="18" y2="50"/>
+                <line x1="82" y1="50" x2="96" y2="50"/>
+                <line x1="17" y1="17" x2="27" y2="27"/>
+                <line x1="73" y1="73" x2="83" y2="83"/>
+                <line x1="83" y1="17" x2="73" y2="27"/>
+                <line x1="17" y1="83" x2="27" y2="73"/>
+            </g>
+        </svg>`;
+
+    function fmtNow() {
+        const d = new Date();
+        const days = ['일','월','화','수','목','금','토'];
+        return `${d.getMonth()+1}월 ${d.getDate()}일 (${days[d.getDay()]}) ${pad(d.getHours())}:${pad(d.getMinutes())} 기준`;
+    }
+
+    function updateUI(ncstItems, fcstItems) {
+        const ncst = {};
+        ncstItems.forEach(i => { ncst[i.category] = i.obsrValue; });
+
+        const now  = new Date();
+        const dStr = fmtDate(now);
+        const fh   = now.getMinutes() >= 30 ? Math.min(now.getHours()+1, 23) : now.getHours();
+        const tStr = pad(fh)+'00';
+
+        const fcstGet = (date, time, cat) =>
+            fcstItems?.find(i => i.fcstDate===date && i.fcstTime===time && i.category===cat)?.fcstValue;
+
+        const sky = fcstGet(dStr, tStr, 'SKY') ?? '1';
+        const pty = ncst.PTY ?? '0';
+        const wx  = wxInfo(sky, pty);
+
+        /* 메인 아이콘 */
+        const iconEl = document.getElementById('main-icon');
+        if (wx.sunny) {
+            iconEl.innerHTML = `<div class="sun-wrap">${SUN_SVG}</div>`;
+        } else {
+            iconEl.innerHTML = `<span class="wx-emoji">${wx.emoji}</span>`;
+        }
+
+        const tempVal = Math.round(parseFloat(ncst.T1H??0));
+        document.getElementById('temp').textContent      = tempVal;
+        document.getElementById('wx-desc').textContent   = wx.desc;
+        document.getElementById('date-time').textContent = fmtNow();
+        document.getElementById('humidity').textContent  = ncst.REH ?? '--';
+        document.getElementById('wind').textContent      = `${windDir(ncst.VEC)} ${parseFloat(ncst.WSD??0).toFixed(1)}m/s`;
+        document.getElementById('feels-like').textContent = feelsLike(ncst.T1H, ncst.REH, ncst.WSD);
+
+        /* 한줄 요약 */
+        const feelTemp = feelsLike(ncst.T1H, ncst.REH, ncst.WSD);
+        const humVal   = parseInt(ncst.REH ?? 0);
+        const humStr   = humVal >= 80 ? '습도가 높아 끈적한' : humVal <= 40 ? '건조한' : '쾌적한';
+        document.getElementById('weather-oneline').textContent =
+            `오늘 천호3동은 ${wx.desc} 날씨로, 기온 ${tempVal}°C·체감 ${feelTemp}°C의 ${humStr} 하루입니다.`;
+
+        /* 주간 예보 */
+        if (fcstItems) {
+            const fc = document.getElementById('forecast-days');
+            fc.innerHTML = '';
+            const DAY_KO = ['일','월','화','수','목','금','토'];
+            const DAY_LABEL = ['오늘','내일','모레','3일 후','4일 후'];
+
+            [0,1,2,3,4].forEach(offset => {
+                const d2 = new Date(now);
+                d2.setDate(d2.getDate() + offset);
+                const ds   = fmtDate(d2);
+                const mmdd = `${d2.getMonth()+1}/${d2.getDate()}`;
+                const dow  = DAY_KO[d2.getDay()];
+
+                const tmx = fcstItems.find(i => i.fcstDate===ds && i.category==='TMX');
+                const tmn = fcstItems.find(i => i.fcstDate===ds && i.category==='TMN');
+                const fs  = fcstGet(ds, '1500', 'SKY') ?? '1';
+                const fp  = fcstGet(ds, '1500', 'PTY') ?? '0';
+                const { emoji } = wxInfo(fs, fp);
+
+                const el = document.createElement('div');
+                el.className = 'fc-card' + (offset===0 ? ' today' : '');
+                el.innerHTML = `
+                    <div class="fc-date-label">${mmdd} (${dow})</div>
+                    <div class="fc-day-label">${DAY_LABEL[offset]}</div>
+                    <span class="fc-wx">${emoji}</span>
+                    <div class="fc-max">${tmx ? Math.round(parseFloat(tmx.fcstValue)) : '--'}°</div>
+                    <div class="fc-min">${tmn ? Math.round(parseFloat(tmn.fcstValue)) : '--'}°</div>`;
+                fc.appendChild(el);
+            });
+        }
+    }
+
+    const $loading = document.getElementById('loading-state');
+    const $weather = document.getElementById('weather-state');
+    const $error   = document.getElementById('error-state');
+    const show = el => [$loading,$weather,$error].forEach(e => e.classList.toggle('hidden', e!==el));
+
+    let initialDone = false;
+
+    async function fetchWeather() {
+        const btn = document.getElementById('refresh-btn');
+        if (!initialDone) show($loading);
+        if (btn) btn.classList.add('spinning');
+        try {
+            const [ncstItems, fcstItems] = await Promise.all([
+                callApi('getUltraSrtNcst', getNcstBase()),
+                callApi('getVilageFcst',   getFcstBase())
+            ]);
+            updateUI(ncstItems, fcstItems);
+            if (!initialDone) { show($weather); initialDone = true; }
+        } catch (e) {
+            console.error(e);
+            document.getElementById('error-msg').textContent = e.message;
+            if (!initialDone) show($error);
+        } finally {
+            if (btn) btn.classList.remove('spinning');
+        }
+    }
+
+    fetchWeather();
+    setInterval(fetchWeather, 10*60*1000);
+</script>
+</body>
+</html>
