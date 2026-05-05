@@ -160,20 +160,15 @@
 
         .forecast-scroll {
             display: flex; gap: 10px;
-            overflow-x: auto; padding-bottom: 6px;
-            scrollbar-width: none;
         }
-        .forecast-scroll::-webkit-scrollbar { display: none; }
 
         .fc-card {
-            flex-shrink: 0;
+            flex: 1;
             background: #1c1c1c;
             border-radius: 18px;
-            padding: 18px 14px;
+            padding: 18px 8px;
             text-align: center;
-            min-width: 86px;
         }
-        .fc-card.today { border: 1px solid rgba(255,64,64,.4); }
         .fc-date-label { font-size: 11px; color: rgba(255,255,255,.4); margin-bottom: 2px; }
         .fc-day-label  { font-size: 13px; font-weight: 700; margin-bottom: 12px; }
         .fc-wx         { font-size: 28px; display: block; margin-bottom: 12px; }
@@ -402,9 +397,9 @@
             const fc = document.getElementById('forecast-days');
             fc.innerHTML = '';
             const DAY_KO = ['일','월','화','수','목','금','토'];
-            const DAY_LABEL = ['오늘','내일','모레','3일 후','4일 후'];
+            const DAY_LABEL = ['내일','모레','3일 후','4일 후'];
 
-            [0,1,2,3,4].forEach(offset => {
+            [1,2,3,4].forEach((offset, idx) => {
                 const d2 = new Date(now);
                 d2.setDate(d2.getDate() + offset);
                 const ds   = fmtDate(d2);
@@ -418,10 +413,10 @@
                 const { emoji } = wxInfo(fs, fp);
 
                 const el = document.createElement('div');
-                el.className = 'fc-card' + (offset===0 ? ' today' : '');
+                el.className = 'fc-card';
                 el.innerHTML = `
                     <div class="fc-date-label">${mmdd} (${dow})</div>
-                    <div class="fc-day-label">${DAY_LABEL[offset]}</div>
+                    <div class="fc-day-label">${DAY_LABEL[idx]}</div>
                     <span class="fc-wx">${emoji}</span>
                     <div class="fc-max">${tmx ? Math.round(parseFloat(tmx.fcstValue)) : '--'}°</div>
                     <div class="fc-min">${tmn ? Math.round(parseFloat(tmn.fcstValue)) : '--'}°</div>`;
