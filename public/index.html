@@ -274,10 +274,8 @@
 </div>
 
 <script>
-    const API_KEY  = 'JWmBKuA7QeepgSrgO2HnXw';
-    const NX       = 62;
-    const NY       = 124;
-    const BASE_URL = '/proxy/api/typ02/openApi/VilageFcstInfoService_2.0';
+    const NX = 62;
+    const NY = 124;
 
     const pad     = n => String(n).padStart(2, '0');
     const fmtDate = d => `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}`;
@@ -305,8 +303,8 @@
     }
 
     async function callApi(endpoint, extra) {
-        const params = new URLSearchParams({ numOfRows:1000, pageNo:1, dataType:'JSON', nx:NX, ny:NY, ...extra });
-        const res  = await fetch(`${BASE_URL}/${endpoint}?authKey=${API_KEY}&${params}`);
+        const params = new URLSearchParams({ endpoint, numOfRows:1000, pageNo:1, dataType:'JSON', nx:NX, ny:NY, ...extra });
+        const res  = await fetch(`/api/weather?${params}`);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const json = await res.json();
         if (json.result?.status) throw new Error(json.result.message);
